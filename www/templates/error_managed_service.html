@@ -1,0 +1,10 @@
+<html lang="en">
+    <head><title>JAAQL Sentinel Error</title></head>
+    <body>
+        JAAQL Sentinel has detected an error with managed service {{NAME}} that occurred at {{CHECK_AT}}<br>
+        Received code {{RESPONSE_CODE}} when calling endpoint {{URL}} the raw result of which is below<br>
+        <pre>{{RAW_RESULT}}</pre>
+        To view this error in the application please visit
+        <a href="{{BASE_URL}}/www/apps/sentinel/index.html?managed_check_id={{MANAGED_SERVICE_CHECK_ID}}">{{BASE_URL}}/apps/sentinel/index.html?managed_check_id={{MANAGED_SERVICE_CHECK_ID}}</a>
+    </body>
+</html>
