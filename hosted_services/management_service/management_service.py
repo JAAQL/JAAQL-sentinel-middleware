@@ -23,6 +23,8 @@ QUERY__ins_check = "INSERT INTO sentinel__managed_service_check (managed_service
 ATTR__managed_service = "managed_service"
 
 ALERT__cooldown = 60 * 1000 * 60 * 3  # 3 hours
+THRESHOLD_INTERNAL = 120
+THRESHOLD_EXTERNAL = 150
 
 
 class ManagementService:
@@ -129,7 +131,9 @@ def create_flask_app(vault_key, is_gunicorn: bool, sentinel_email_recipient: str
     vault = Vault(vault_key, DIR__vault)
     jaaql_lookup_connection = get_jaaql_connection(config, vault)
 
-    if jaaql_url is None:
+    was_jaaql_url_none = jaaql_url is None
+
+    if was_jaaql_url_none:
         jaaql_url = base_url + ENDPOINT__is_alive
     else:
         if not jaaql_url.startswith("http"):
@@ -146,14 +150,14 @@ def create_flask_app(vault_key, is_gunicorn: bool, sentinel_email_recipient: str
             KEY__managed_service_name: "sentinel",
             KEY__check_every_ms: 60 * 1000 * 5,
             KEY__managed_service_url: base_url + ENDPOINT__sentinel_is_alive,
-            KEY__response_time_alert_threshold_ms: 60,
+            KEY__response_time_alert_threshold_ms: THRESHOLD_INTERNAL,
             KEY__skip_reload: True
         }, headers=bypass_header)
         requests.post(base_url + ENDPOINT__managed_services, json={
             KEY__managed_service_name: "JAAQL",
             KEY__check_every_ms: 60 * 1000 * 5,
             KEY__managed_service_url: jaaql_url,
-            KEY__response_time_alert_threshold_ms: 150,
+            KEY__response_time_alert_threshold_ms: THRESHOLD_INTERNAL if was_jaaql_url_none else THRESHOLD_EXTERNAL,
             KEY__skip_reload: True
         }, headers=bypass_header)
 
