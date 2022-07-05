@@ -4,6 +4,8 @@ set -e
 chmod +777 entrypoint.sh
 cd "$INSTALL_PATH"
 
+cp -r $INSTALL_PATH/www_dir/. $INSTALL_PATH/www
+
 export PYTHONUNBUFFERED=TRUE
 export PYTHONPATH=.
 

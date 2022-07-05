@@ -40,7 +40,7 @@ Helpful command for internal uses
         --mount type=bind,source="$(pwd)"/log,target=/JAAQL-sentinel-middleware/log \
         --mount type=bind,source="$(pwd)"/www,target=/JAAQL-sentinel-middleware/www \
         --mount type=bind,source="$(pwd)"/log/nginx,target=/var/log/nginx \
-        --mount type=bind,source="$(pwd)"../JAAQL-middleware-python/letsencrypt,target=/etc/letsencrypt \
+        --mount type=bind,source="$(pwd)"../JAAQL-middleware-python/letsencrypt,target=/etc/letsencrypt,readonly \
         --name jaaql-sentinel-middleware \
         -e PIGGYBACK_LETSENCRYPT=TRUE \
         -e IS_HTTPS=TRUE \

@@ -136,10 +136,8 @@ jaaql_uri
 
 swagger
 vault
-www
 log
 
-/www/apps
 wsgi_patch.py
 
 node_modules/
