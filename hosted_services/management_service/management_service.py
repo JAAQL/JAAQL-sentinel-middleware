@@ -83,8 +83,6 @@ class ManagementService:
             email_parameters = execute_supplied_statement_singleton(self.connection, QUERY__ins_check, inputs, as_objects=True)
             email_parameters[ATTR__base_url] = self.external_url
 
-            passed = False
-
             if self.alert_cooldowns.get(ms_name) is None or time_delta_ms(self.alert_cooldowns.get(ms_name), datetime.now()) > ALERT__cooldown:
                 template = None
                 if not passed:
