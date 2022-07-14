@@ -1,1 +1,1 @@
-jaaql-middleware-python==3.1.14
+jaaql-middleware-python==3.1.15
