@@ -1,4 +1,4 @@
-FROM jaaql/jaaql-middleware-python:3.1.17
+FROM jaaql/jaaql-middleware-python:3.1.21
 
 ENV INSTALL_PATH /JAAQL-sentinel-middleware
 ENV SENTINEL_URL _
