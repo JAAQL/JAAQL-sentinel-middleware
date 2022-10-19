@@ -1,24 +1,22 @@
 from jaaql.db.db_interface import DBInterface
 from datetime import datetime
 from jaaql.db.db_utils import execute_supplied_statement, execute_supplied_statement_singleton
-from jaaql.utilities.utils import load_config, get_jaaql_connection, await_ems_startup, get_base_url, time_delta_ms, get_external_url
+from jaaql.utilities.utils import load_config, get_db_connection_as_jaaql, await_ems_startup, get_base_url, time_delta_ms, get_external_url
 import sys
 from flask import Flask, jsonify
-from jaaql.utilities.vault import Vault, DIR__vault
-from documentation.documentation_sentinel import KEY__skip_reload, KEY__managed_service_name, KEY__check_every_ms, KEY__managed_service_url, \
+from documentation.documentation_sentinel import KEY__managed_service_name, KEY__check_every_ms, KEY__managed_service_url, \
     KEY__response_time_alert_threshold_ms, KEY__raw_result, KEY__response_code, KEY__response_time_ms
-from jaaql.constants import HEADER__security_bypass, VAULT_KEY__jaaql_local_access_key, ENDPOINT__is_alive, ENDPOINT__jaaql_emails, \
-    KEY__application, KEY__parameters, KEY__template, KEY__recipient
+from jaaql.constants import HEADER__security_bypass, VAULT_KEY__jaaql_local_access_key, ENDPOINT__jaaql_emails, KEY__application, KEY__parameters, \
+    KEY__template, KEY__recipient
 import requests
-from constants import ENDPOINT__ms_reload, PORT__ms, ENDPOINT__managed_services, ENDPOINT__sentinel_is_alive, APPLICATION__sentinel, \
-    TEMPLATE__error_managed_service, TEMPLATE__error_managed_service_threshold, ENDPOINT__reset_cooldowns, ATTR__base_url, \
-    VAULT_KEY__sentinel_already_installed
+from constants import ENDPOINT__ms_reload, PORT__ms, APPLICATION__sentinel, TEMPLATE__error_managed_service, DB__sentinel_live, \
+    TEMPLATE__error_managed_service_threshold, ENDPOINT__reset_cooldowns, ATTR__base_url
 import threading
 import time
 import traceback
 
-QUERY__fetch_managed_services = "SELECT * FROM sentinel__managed_service"
-QUERY__ins_check = "INSERT INTO sentinel__managed_service_check (managed_service, raw_result, response_code, response_time_ms) VALUES (:managed_service, :raw_result, :response_code, :response_time_ms) RETURNING id::text as managed_service_check_id"
+QUERY__fetch_managed_services = "SELECT * FROM managed_service"
+QUERY__ins_check = "INSERT INTO managed_service_check (managed_service, raw_result, response_code, response_time_ms) VALUES (:managed_service, :raw_result, :response_code, :response_time_ms) RETURNING id::text as managed_service_check_id"
 
 ATTR__managed_service = "managed_service"
 
@@ -124,43 +122,14 @@ def create_app(ms: ManagementService):
     return app
 
 
-def create_flask_app(vault_key, is_gunicorn: bool, sentinel_email_recipient: str, jaaql_url: str = None):
+def create_flask_app(vault, is_gunicorn: bool, sentinel_email_recipient: str):
     config = load_config(is_gunicorn)
     await_ems_startup()
     base_url = get_base_url(config, is_gunicorn)
-    vault = Vault(vault_key, DIR__vault)
-    jaaql_lookup_connection = get_jaaql_connection(config, vault)
-
-    was_jaaql_url_none = jaaql_url is None
-
-    if was_jaaql_url_none:
-        jaaql_url = base_url + ENDPOINT__is_alive
-    else:
-        if not jaaql_url.startswith("http"):
-            jaaql_url = "https://" + jaaql_url
-        if not jaaql_url.endswith("/api") and not jaaql_url.endswith(ENDPOINT__is_alive):
-            jaaql_url = jaaql_url + "/api"
-        if not jaaql_url.endswith(ENDPOINT__is_alive):
-            jaaql_url = jaaql_url + ENDPOINT__is_alive
+    connection = get_db_connection_as_jaaql(config, vault, DB__sentinel_live)
 
     bypass_header = {HEADER__security_bypass: vault.get_obj(VAULT_KEY__jaaql_local_access_key)}
 
-    if not vault.has_obj(VAULT_KEY__sentinel_already_installed):
-        requests.post(base_url + ENDPOINT__managed_services, json={
-            KEY__managed_service_name: "sentinel",
-            KEY__check_every_ms: 60 * 1000 * 5,
-            KEY__managed_service_url: base_url + ENDPOINT__sentinel_is_alive,
-            KEY__response_time_alert_threshold_ms: THRESHOLD_INTERNAL,
-            KEY__skip_reload: True
-        }, headers=bypass_header)
-        requests.post(base_url + ENDPOINT__managed_services, json={
-            KEY__managed_service_name: "JAAQL",
-            KEY__check_every_ms: 60 * 1000 * 5,
-            KEY__managed_service_url: jaaql_url,
-            KEY__response_time_alert_threshold_ms: THRESHOLD_INTERNAL if was_jaaql_url_none else THRESHOLD_EXTERNAL,
-            KEY__skip_reload: True
-        }, headers=bypass_header)
-
-    flask_app = create_app(ManagementService(jaaql_lookup_connection, sentinel_email_recipient, get_external_url(config), base_url, bypass_header))
+    flask_app = create_app(ManagementService(connection, sentinel_email_recipient, get_external_url(config), base_url, bypass_header))
     print("Created management service host, running flask", file=sys.stderr)
     flask_app.run(port=PORT__ms, host="0.0.0.0", threaded=True)

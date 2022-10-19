@@ -20,4 +20,4 @@ ENDPOINT__sentinel_is_alive = "/sentinel/is-alive"
 
 APPLICATION__sentinel = "sentinel"
 
-VAULT_KEY__sentinel_already_installed = "sentinel_already_installed"
+DB__sentinel_live = "jaaql__sentinel_live"

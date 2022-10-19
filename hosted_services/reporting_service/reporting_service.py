@@ -1,16 +1,9 @@
-from jaaql.db.db_interface import DBInterface
-from jaaql.utilities.utils import load_config, await_ems_startup, get_jaaql_connection, get_base_url, get_external_url, time_delta_ms
+from jaaql.utilities.utils import load_config, await_ems_startup, get_base_url, get_external_url, time_delta_ms
 import sys
 from datetime import datetime
-from jaaql.constants import HEADER__security_bypass, VAULT_KEY__jaaql_local_access_key, ENDPOINT__internal_applications, KEY__application_name, \
-    KEY__application_url, KEY__default_database, ENDPOINT__internal_templates, ENDPOINT__internal_accounts, KEY__recipient, KEY__template, \
-    KEY__email_account_name, KEY__email_account_send_name, KEY__email_account_protocol, KEY__email_account_host, KEY__email_account_port, \
-    KEY__email_account_username, KEY__password, KEY__email_template_name, KEY__account, KEY__description, KEY__app_relative_path, KEY__subject, \
-    KEY__allow_signup, KEY__allow_confirm_signup_attempt, KEY__allow_reset_password, KEY__data_validation_table, KEY__data_validation_view, \
-    ENDPOINT__jaaql_emails, KEY__application, KEY__parameters, CONFIG__default, KEY__configuration, KEY__role, ENDPOINT__configuration_authorizations
+from jaaql.constants import HEADER__security_bypass, VAULT_KEY__jaaql_local_access_key, KEY__recipient, KEY__template, ENDPOINT__jaaql_emails, \
+    KEY__application, KEY__parameters
 from flask import Flask, jsonify, request
-from base64 import b64decode as b64d
-from jaaql.utilities.vault import Vault, DIR__vault
 from constants import *
 from documentation.documentation_sentinel import KEY__error_id, KEY__source_file, KEY__file_line_number
 import requests
@@ -24,8 +17,7 @@ ATTR__error_id = "error_id"
 
 class ReportingService:
 
-    def __init__(self, connection: DBInterface, sentinel_email_recipient: str, external_url: str, internal_url: str, bypass_header: dict):
-        self.connection = connection
+    def __init__(self, sentinel_email_recipient: str, external_url: str, internal_url: str, bypass_header: dict):
         self.sentinel_email_recipient = sentinel_email_recipient
         self.external_url = external_url
         self.internal_url = internal_url
@@ -77,77 +69,13 @@ def create_app(ms: ReportingService):
     return app
 
 
-def create_flask_app(vault_key, is_gunicorn: bool, sentinel_email_host: str, sentinel_email_port: int, sentinel_email_username: str,
-                     sentinel_email_password: str, sentinel_email_recipient: str):
+def create_flask_app(vault, is_gunicorn: bool, sentinel_email_recipient: str):
     config = load_config(is_gunicorn)
     await_ems_startup()
     base_url = get_base_url(config, is_gunicorn)
-    vault = Vault(vault_key, DIR__vault)
-    jaaql_lookup_connection = get_jaaql_connection(config, vault)
 
     bypass_header = {HEADER__security_bypass: vault.get_obj(VAULT_KEY__jaaql_local_access_key)}
 
-    if not vault.has_obj(VAULT_KEY__sentinel_already_installed):
-        requests.post(base_url + ENDPOINT__internal_applications, json={
-            KEY__application_name: APPLICATION__sentinel,
-            KEY__description: "The sentinel application",
-            KEY__application_url: "{{DEFAULT}}/sentinel",
-            KEY__default_database: "sentinel"
-        }, headers=bypass_header)
-        requests.post(base_url + ENDPOINT__configuration_authorizations, json={
-            KEY__application: APPLICATION__sentinel,
-            KEY__configuration: CONFIG__default,
-            KEY__role: "postgres",
-        }, headers=bypass_header)
-        requests.post(base_url + ENDPOINT__internal_accounts, json={
-            KEY__email_account_name: ACCOUNT__sentinel,
-            KEY__email_account_send_name: "JAAQL Sentinel",
-            KEY__email_account_protocol: "smtp",
-            KEY__email_account_host: sentinel_email_host,
-            KEY__email_account_port: sentinel_email_port,
-            KEY__email_account_username: sentinel_email_username,
-            KEY__password: b64d(sentinel_email_password).decode("ASCII")
-        }, headers=bypass_header)
-        requests.post(base_url + ENDPOINT__internal_templates, json={
-            KEY__email_template_name: TEMPLATE__error_managed_service,
-            KEY__account: ACCOUNT__sentinel,
-            KEY__description: "The email that is sent when there is an error in the managed service",
-            KEY__app_relative_path: "error_managed_service",
-            KEY__subject: "Sentinel: Error in managed service",
-            KEY__allow_signup: False,
-            KEY__allow_confirm_signup_attempt: False,
-            KEY__allow_reset_password: False,
-            KEY__data_validation_table: "sentinel__managed_service_email",
-            KEY__data_validation_view: "vw_sentinel__managed_service_error_email"
-        }, headers=bypass_header)
-        requests.post(base_url + ENDPOINT__internal_templates, json={
-            KEY__email_template_name: TEMPLATE__error_managed_service_threshold,
-            KEY__account: ACCOUNT__sentinel,
-            KEY__description: "The email that is sent when a managed service keep alive exceeds it's threshold time",
-            KEY__app_relative_path: "error_managed_service_threshold",
-            KEY__subject: "Sentinel: Slow managed service",
-            KEY__allow_signup: False,
-            KEY__allow_confirm_signup_attempt: False,
-            KEY__allow_reset_password: False,
-            KEY__data_validation_table: "sentinel__managed_service_email",
-            KEY__data_validation_view: "vw_sentinel__managed_service_threshold_email"
-        }, headers=bypass_header)
-        requests.post(base_url + ENDPOINT__internal_templates, json={
-            KEY__email_template_name: TEMPLATE__error_reported,
-            KEY__account: ACCOUNT__sentinel,
-            KEY__description: "The email that is sent when an error is reported, assuming that the ip address isn't over the threshold and the line "
-            "number and file have been reported once in the last 24 hours ",
-            KEY__app_relative_path: "error_reported",
-            KEY__subject: "Sentinel: Application error reported",
-            KEY__allow_signup: False,
-            KEY__allow_confirm_signup_attempt: False,
-            KEY__allow_reset_password: False,
-            KEY__data_validation_table: "sentinel__error_email",
-            KEY__data_validation_view: "vw_sentinel__error_email"
-        }, headers=bypass_header)
-
-    vault.insert_obj(VAULT_KEY__sentinel_already_installed, "true")
-
-    flask_app = create_app(ReportingService(jaaql_lookup_connection, sentinel_email_recipient, get_external_url(config), base_url, bypass_header))
+    flask_app = create_app(ReportingService(sentinel_email_recipient, get_external_url(config), base_url, bypass_header))
     print("Created reporting service host, running flask", file=sys.stderr)
     flask_app.run(port=PORT__rs, host="0.0.0.0", threaded=True)
