@@ -1,0 +1,101 @@
+\switch jaaql account to @jaaql
+
+INSERT INTO application (
+    name,
+    base_url,
+    artifacts_source )
+VALUES (
+    'sentinel',
+    '{{JAAQL__SENTINEL_APP_URL}}',
+    'artifacts' );
+
+INSERT INTO application_schema (
+    application,
+    name,
+    database )
+VALUES (
+    'sentinel',
+    'default',
+    'sentinel');
+UPDATE
+    application
+SET
+    default_schema = 'default'
+WHERE
+    name = 'sentinel';
+
+INSERT INTO email_dispatcher (
+    application,
+    name,
+    display_name)
+VALUES (
+    'sentinel',
+    'dispatcher',
+    'sentinel');
+\g
+\attach email account @dispatcher to sentinel.dispatcher
+
+INSERT INTO email_template (
+    application,
+    name,
+    type,
+    content_url,
+    validation_schema,
+    dispatcher,
+    data_validation_table,
+    data_validation_view )
+VALUES (
+    'sentinel',
+    'error_managed_service',
+    'G',
+    'templates/error-managed-service.emailbody',
+    'default',
+    'dispatcher',
+    'managed_service_email',
+    'vw_managed_service_error_email' );
+
+INSERT INTO email_template (
+    application,
+    name,
+    type,
+    content_url,
+    validation_schema,
+    dispatcher,
+    data_validation_table,
+    data_validation_view )
+VALUES (
+    'sentinel',
+    'error_managed_service_threshold',
+    'G',
+    'templates/error-managed-service-threshold.emailbody',
+    'default',
+    'dispatcher',
+    'managed_service_email',
+    'vw_managed_service_threshold_email' );
+
+INSERT INTO email_template (
+    application,
+    name,
+    type,
+    content_url,
+    validation_schema,
+    dispatcher,
+    data_validation_table,
+    data_validation_view )
+VALUES (
+    'sentinel',
+    'error_reported',
+    'G',
+    'templates/error-reported.emailbody',
+    'default',
+    'dispatcher',
+    'error_email',
+    'vw_error_email' );
+
+UPDATE
+    application
+SET
+    is_live = TRUE
+WHERE
+    name = 'sentinel';
+\g

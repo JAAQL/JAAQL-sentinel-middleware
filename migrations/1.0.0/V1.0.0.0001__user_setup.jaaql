@@ -1,0 +1,8 @@
+\switch jaaql account to @jaaql
+\register jaaql account with @dba
+\register jaaql account with @user
+
+\switch jaaql account to @superuser
+\connect to database postgres
+alter user dba createdb;
+\g

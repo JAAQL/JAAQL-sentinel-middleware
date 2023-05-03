@@ -2,6 +2,7 @@ vault/*
 swagger/*
 log/*
 letsencrypt/*
+monitor_config/*
 
 docker.md
 examples.md

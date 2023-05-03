@@ -1,22 +1,29 @@
-from jaaql.db.db_interface import DBInterface
 from datetime import datetime
-from jaaql.db.db_utils import execute_supplied_statement, execute_supplied_statement_singleton
-from jaaql.utilities.utils import load_config, get_db_connection_as_jaaql, await_ems_startup, get_base_url, time_delta_ms, get_external_url
+from jaaql.interpreter.interpret_jaaql import KEY_query
+from jaaql.utilities.utils import time_delta_ms
+from jaaql.db.db_utils_no_circ import submit
 import sys
 from flask import Flask, jsonify
-from documentation.documentation_sentinel import KEY__managed_service_name, KEY__check_every_ms, KEY__managed_service_url, \
-    KEY__response_time_alert_threshold_ms, KEY__raw_result, KEY__response_code, KEY__response_time_ms
-from jaaql.constants import HEADER__security_bypass, VAULT_KEY__jaaql_local_access_key, ENDPOINT__jaaql_emails, KEY__application, KEY__parameters, \
-    KEY__template, KEY__recipient
+from jaaql.constants import KEY__application, KEY__parameters
+from jaaql.email.email_manager import EmailManager
 import requests
-from constants import ENDPOINT__ms_reload, PORT__ms, APPLICATION__sentinel, TEMPLATE__error_managed_service, DB__sentinel_live, \
-    TEMPLATE__error_managed_service_threshold, ENDPOINT__reset_cooldowns, ATTR__base_url
+from constants import PORT__ms, APPLICATION__sentinel, TEMPLATE__error_managed_service, \
+    TEMPLATE__error_managed_service_threshold, ENDPOINT__reset_cooldowns, ROLE__dba
+from jaaql.mvc.exception_queries import KG__application__artifacts_source, KG__application__base_url
 import threading
 import time
 import traceback
 
+KEY__response_time_ms = "response_time_ms"
+KEY__response_code = "response_code"
+KEY__raw_result = "raw_result"
+
+KEY__managed_service_name = "name"
+KEY__check_every_ms = "check_every_ms"
+KEY__managed_service_url = "url"
+KEY__response_time_alert_threshold_ms = "response_time_alert_threshold_ms"
+
 QUERY__fetch_managed_services = "SELECT * FROM managed_service"
-QUERY__ins_check = "INSERT INTO managed_service_check (managed_service, raw_result, response_code, response_time_ms) VALUES (:managed_service, :raw_result, :response_code, :response_time_ms) RETURNING id::text as managed_service_check_id"
 
 ATTR__managed_service = "managed_service"
 
@@ -24,25 +31,37 @@ ALERT__cooldown = 60 * 1000 * 60 * 3  # 3 hours
 THRESHOLD_INTERNAL = 120
 THRESHOLD_EXTERNAL = 150
 
+QUERY__ins_check = "INSERT INTO managed_service_check (managed_service, raw_result, response_code, response_time_ms) VALUES (:managed_service, :raw_result, :response_code, :response_time_ms) RETURNING id::text as managed_service_check_id"
+
 
 class ManagementService:
 
-    def __init__(self, connection: DBInterface, sentinel_email_recipient: str, external_url: str, internal_url: str, bypass_header: dict):
-        self.connection = connection
+    def __init__(self, vault, config, db_crypt_key, jaaql_connection, app, is_container: bool, sentinel_email_recipient: str):
+        self.app = app
         self.sentinel_email_recipient = sentinel_email_recipient
         self.managed_services = {}
-        self.external_url = external_url
-        self.internal_url = internal_url
-        self.bypass_header = bypass_header
         self.alert_cooldowns = {}
+        self.email_manager = EmailManager(is_container)
+
+        self.vault = vault
+        self.config = config
+        self.db_crypt_key = db_crypt_key
+        self.jaaql_connection = jaaql_connection
+
         threading.Thread(target=self.wait_and_then_reload_managed_services, daemon=True).start()
 
     def wait_and_then_reload_managed_services(self):
-        time.sleep(30)
-        self.reload_managed_services()
+        while True:
+            time.sleep(30)
+            self.reload_managed_services()
 
     def reload_managed_services(self):
-        res = execute_supplied_statement(self.connection, QUERY__fetch_managed_services, as_objects=True)
+        submit_inputs = {
+            KEY_query: QUERY__fetch_managed_services,
+            KEY__application: APPLICATION__sentinel
+        }
+
+        res = submit(self.vault, self.config, self.db_crypt_key, self.jaaql_connection, submit_inputs, ROLE__dba, as_objects=True)
         found = []
 
         for ms in res:
@@ -74,14 +93,19 @@ class ManagementService:
                 raw_response = ''.join(traceback.format_exception(etype=type(ex), value=ex, tb=ex.__traceback__))
             response_time_ms = time_delta_ms(start_time, datetime.now())
 
-            inputs = {
-                ATTR__managed_service: ms_name,
-                KEY__response_code: status_code,
-                KEY__raw_result: raw_response,
-                KEY__response_time_ms: response_time_ms
+            submit_inputs = {
+                KEY_query: QUERY__ins_check,
+                KEY__application: APPLICATION__sentinel,
+                KEY__parameters: {
+                    ATTR__managed_service: ms_name,
+                    KEY__response_code: status_code,
+                    KEY__raw_result: raw_response,
+                    KEY__response_time_ms: response_time_ms
+                }
             }
-            email_parameters = execute_supplied_statement_singleton(self.connection, QUERY__ins_check, inputs, as_objects=True)
-            email_parameters[ATTR__base_url] = self.external_url
+
+            email_parameters = submit(self.vault, self.config, self.db_crypt_key, self.jaaql_connection, submit_inputs, ROLE__dba, as_objects=True,
+                                      singleton=True)
 
             if self.alert_cooldowns.get(ms_name) is None or time_delta_ms(self.alert_cooldowns.get(ms_name), datetime.now()) > ALERT__cooldown:
                 template = None
@@ -91,12 +115,11 @@ class ManagementService:
                     template = TEMPLATE__error_managed_service_threshold
 
                 if template:
-                    requests.post(self.internal_url + ENDPOINT__jaaql_emails, json={
-                        KEY__application: APPLICATION__sentinel,
-                        KEY__parameters: email_parameters,
-                        KEY__template: template,
-                        KEY__recipient: self.sentinel_email_recipient
-                    }, headers=self.bypass_header)
+                    self.email_manager.send_email(self.vault, self.config, self.db_crypt_key, self.jaaql_connection, APPLICATION__sentinel,
+                                                  template, self.app[KG__application__artifacts_source],
+                                                  self.app[KG__application__base_url],
+                                                  ROLE__dba, parameters=email_parameters, recipient=self.sentinel_email_recipient)
+
                     self.alert_cooldowns[ms_name] = datetime.now()
 
             time.sleep(ms[KEY__check_every_ms] / 1000)
@@ -109,11 +132,6 @@ def create_app(ms: ManagementService):
 
     app = Flask(__name__, instance_relative_config=True)
 
-    @app.route(ENDPOINT__ms_reload, methods=["POST"])
-    def reload():
-        ms.reload_managed_services()
-        return jsonify("OK")
-
     @app.route(ENDPOINT__reset_cooldowns, methods=["POST"])
     def reset():
         ms.alert_cooldowns = {}
@@ -122,14 +140,7 @@ def create_app(ms: ManagementService):
     return app
 
 
-def create_flask_app(vault, is_gunicorn: bool, sentinel_email_recipient: str):
-    config = load_config(is_gunicorn)
-    await_ems_startup()
-    base_url = get_base_url(config, is_gunicorn)
-    connection = get_db_connection_as_jaaql(config, vault, DB__sentinel_live)
-
-    bypass_header = {HEADER__security_bypass: vault.get_obj(VAULT_KEY__jaaql_local_access_key)}
-
-    flask_app = create_app(ManagementService(connection, sentinel_email_recipient, get_external_url(config), base_url, bypass_header))
+def create_flask_app(vault, config, db_crypt_key, jaaql_connection, app, is_container, sentinel_email_recipient: str):
+    flask_app = create_app(ManagementService(vault, config, db_crypt_key, jaaql_connection, app, is_container, sentinel_email_recipient))
     print("Created management service host, running flask", file=sys.stderr)
     flask_app.run(port=PORT__ms, host="0.0.0.0", threaded=True)

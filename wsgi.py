@@ -8,40 +8,8 @@ from jaaql.utilities.options import *
 from hosted_services.patch_services import bootup
 import documentation
 
-OPT_KEY__sentinel_email_host = "sentinel-email-host"
-OPT_KEY__sentinel_email_port = "sentinel-email-port"
-OPT_KEY__sentinel_email_username = "sentinel-email-username"
-OPT_KEY__sentinel_email_password = "sentinel-email-password"
 OPT_KEY__sentinel_email_recipient = "sentinel-email-recipient"
 OPT__override = [
-    Option(
-        short="sh",
-        long=OPT_KEY__sentinel_email_host,
-        required=True,
-        description="The host for the sentinel email account",
-        is_flag=False
-    ),
-    Option(
-        short="spo",
-        long=OPT_KEY__sentinel_email_port,
-        required=True,
-        description="The port for the sentinel email account",
-        is_flag=False
-    ),
-    Option(
-        short="su",
-        long=OPT_KEY__sentinel_email_username,
-        required=True,
-        description="Username for sentinel email account",
-        is_flag=False
-    ),
-    Option(
-        short="spa",
-        long=OPT_KEY__sentinel_email_password,
-        required=True,
-        description="Base 64 encoded password for sentinel email account",
-        is_flag=False
-    ),
     Option(
         short="sr",
         long=OPT_KEY__sentinel_email_recipient,

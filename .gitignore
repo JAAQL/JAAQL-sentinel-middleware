@@ -144,3 +144,5 @@ node_modules/
 package-lock.json
 
 chromedriver.exe
+
+monitor_config

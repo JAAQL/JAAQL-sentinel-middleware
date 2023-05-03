@@ -1,5 +1,18 @@
+\switch jaaql account to @dba
+\connect to database postgres for createdb
+CREATE DATABASE sentinel;
+\g
+
+\connect to database jaaql
+SELECT configure_database_for_use_with_jaaql('sentinel');
+\g
+
+\connect to database sentinel
+CREATE DOMAIN internet_name AS character varying(63) CHECK (VALUE ~* '^[a-z0-9\-]*$');
+
 CREATE TABLE error (
     id uuid PRIMARY KEY NOT NULL default gen_random_uuid(),
+    application internet_name,
     source_file varchar(255) not null,
     enc_user_agent text,
     enc_ip_address varchar(200) not null,
@@ -10,13 +23,13 @@ CREATE TABLE error (
     source_system varchar(100) not null,
     created timestamptz not null default current_timestamp
 );
+GRANT select on error to registered;
 
 create index error_ip_idx ON error (enc_ip_address);
 
 CREATE TABLE error_email (
     id uuid PRIMARY KEY not null DEFAULT gen_random_uuid(),
     error_id uuid,
-    base_url varchar(200) not null,
     FOREIGN KEY (error_id) REFERENCES error ON UPDATE CASCADE ON DELETE CASCADE
 );
 
@@ -27,8 +40,7 @@ create view vw_error_email as (
         se.source_system,
         se.version,
         se.created,
-        se.stacktrace,
-        ee.base_url
+        se.stacktrace
     FROM error_email ee
     INNER JOIN error se on ee.error_id = se.id
 );
@@ -39,9 +51,9 @@ CREATE TABLE managed_service (
     url varchar(255),
     response_time_alert_threshold_ms int not null
 );
+GRANT select, insert, update, delete ON managed_service to registered;
 
 INSERT INTO managed_service (name, check_every_ms, url, response_time_alert_threshold_ms) VALUES ('sentinel', 60 * 1000 * 5, '{{JAAQL__BASE_URL}}/sentinel/is-alive', 120);
-INSERT INTO managed_service (name, check_every_ms, url, response_time_alert_threshold_ms) VALUES ('JAAQL', 60 * 1000 * 5, (CASE WHEN {{JAAQL__QUOTE_JAAQL_URL}} is null THEN '{{JAAQL__BASE_URL}}' else '{{JAAQL__JAAQL_URL}}' END) || '/internal/is-alive', 120);
 
 CREATE TABLE managed_service_check (
     id uuid PRIMARY KEY NOT NULL default gen_random_uuid(),
@@ -55,7 +67,6 @@ CREATE TABLE managed_service_check (
 
 CREATE TABLE managed_service_email (
     id uuid PRIMARY KEY not null DEFAULT gen_random_uuid(),
-    base_url varchar(200) not null,
     managed_service_check_id uuid NOT NULL,
     FOREIGN KEY (managed_service_check_id) REFERENCES managed_service_check ON UPDATE cascade ON DELETE cascade
 );
@@ -68,7 +79,6 @@ create view vw_managed_service_error_email as (
         smsc.check_at,
         smsc.response_code,
         smsc.raw_result,
-        mse.base_url,
         ms.url
     FROM managed_service_email mse
     INNER JOIN managed_service_check smsc on mse.managed_service_check_id = smsc.id
@@ -79,7 +89,6 @@ create view vw_managed_service_threshold_email as (
     SELECT
         mse.id,
         mse.managed_service_check_id,
-        mse.base_url,
         smsc.managed_service as name,
         smsc.check_at,
         smsc.response_time_ms,
@@ -120,3 +129,5 @@ create view vw_managed_service_recent_checks as (
     WHERE row_id < 101
     ORDER BY "name", "check_at" DESC
 );
+GRANT select on vw_managed_service_recent_checks to registered;
+\g
