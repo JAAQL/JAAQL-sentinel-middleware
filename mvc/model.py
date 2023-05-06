@@ -10,7 +10,7 @@ import traceback
 
 ATTR__enc_ip_address = "enc_ip_address"
 
-QUERY__ins_error = "INSERT INTO error (application, source_file, enc_user_agent, enc_ip_address, error_condensed, file_line_number, version, source_system, stacktrace) VALUES (:application, :source_file, #user_agent, #ip_address, left(:error_condensed, 200), :file_line_number, :version, :source_system, :stacktrace) RETURNING id::text as error_id, source_file, file_line_number, application"
+QUERY__ins_error = "INSERT INTO error (location, source_file, enc_user_agent, enc_ip_address, error_condensed, file_line_number, version, source_system, stacktrace) VALUES (:location, :source_file, #user_agent, #ip_address, left(:error_condensed, 200), :file_line_number, :version, :source_system, :stacktrace) RETURNING id::text as error_id, source_file, file_line_number"
 
 
 class SentinelModel(JAAQLModelInterface):

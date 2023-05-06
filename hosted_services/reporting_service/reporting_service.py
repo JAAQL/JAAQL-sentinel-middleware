@@ -3,8 +3,7 @@ import sys
 from datetime import datetime
 from flask import Flask, jsonify, request
 from constants import *
-from jaaql.constants import KEY__application
-from documentation.documentation_sentinel import KEY__source_file, KEY__file_line_number, KEY__ip_address
+from documentation.documentation_sentinel import KEY__source_file, KEY__file_line_number, KEY__ip_address, KEY__source_system
 from jaaql.email.email_manager import EmailManager
 from jaaql.mvc.exception_queries import KG__application__artifacts_source, KG__application__base_url
 
@@ -33,7 +32,7 @@ class ReportingService:
     def handle_report(self, inputs: dict):
         ip_hit = inputs[KEY__ip_address]
         inputs.pop(KEY__ip_address)
-        source_file_hit = inputs[KEY__application] + ":" + inputs[KEY__source_file]
+        source_file_hit = inputs[KEY__source_system] + ":" + inputs[KEY__source_file]
         line_number_hit = source_file_hit + ":" + str(inputs[KEY__file_line_number])
 
         hit_ip_cooldown = ip_hit in self.ip_cooldowns and time_delta_ms(self.ip_cooldowns[ip_hit], datetime.now()) <= COOLDOWN_MS__ip

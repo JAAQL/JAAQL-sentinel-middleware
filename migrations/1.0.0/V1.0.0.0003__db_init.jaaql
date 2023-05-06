@@ -8,24 +8,22 @@ SELECT configure_database_for_use_with_jaaql('sentinel');
 \g
 
 \connect to database sentinel
-CREATE DOMAIN internet_name AS character varying(63) CHECK (VALUE ~* '^[a-z0-9\-]*$');
+CREATE DOMAIN system_name AS character varying(63) CHECK (VALUE ~* '^[A-Za-z0-9\-]*$');
 
 CREATE TABLE error (
     id uuid PRIMARY KEY NOT NULL default gen_random_uuid(),
-    application internet_name,
+    location varchar(512) not null,
     source_file varchar(255) not null,
     enc_user_agent text,
     enc_ip_address varchar(200) not null,
     error_condensed varchar(200) not null,
     stacktrace text not null,
     file_line_number int not null,
-    version varchar(20) not null,
-    source_system varchar(100) not null,
+    version varchar(40) not null,
+    source_system system_name not null,
     created timestamptz not null default current_timestamp
 );
 GRANT select on error to registered;
-
-create index error_ip_idx ON error (enc_ip_address);
 
 CREATE TABLE error_email (
     id uuid PRIMARY KEY not null DEFAULT gen_random_uuid(),

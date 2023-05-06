@@ -1,5 +1,4 @@
 from jaaql.openapi.swagger_documentation import *
-from jaaql.constants import KEY__application
 
 
 TITLE = "JAAQL Sentinel"
@@ -59,8 +58,8 @@ KEY__file_line_number = "file_line_number"
 
 ARG_RES__error_body = [
     SwaggerArgumentResponse(
-        name=KEY__application,
-        description="The application with which the error is associated",
+        name="location",
+        description="The full url at which the error occurred",
         arg_type=str,
         example=["out-and-about"]
     ),
