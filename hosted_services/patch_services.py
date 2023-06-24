@@ -7,7 +7,7 @@ from hosted_services.management_service.management_service import create_flask_a
 from hosted_services.reporting_service.reporting_service import create_flask_app as r_flask_app
 from jaaql.utilities.vault import Vault, DIR__vault
 import os
-from jaaql.constants import ENVIRON__vault_key
+from jaaql.jaaql import DEFAULT_VAULT_KEY
 from jaaql.mvc.generated_queries import application__select
 from constants import ENVIRON__sentinel_email_recipient, APPLICATION__sentinel
 from jaaql.utilities.utils import await_ems_startup, load_config, await_migrations_finished, get_jaaql_connection, get_db_crypt_key
@@ -32,4 +32,4 @@ def bootup(email_recipient: str, vault_key: str, is_gunicorn: bool = False):
 
 
 if __name__ == "__main__":
-    bootup(os.environ[ENVIRON__sentinel_email_recipient], os.environ.get(ENVIRON__vault_key), True)
+    bootup(os.environ[ENVIRON__sentinel_email_recipient], DEFAULT_VAULT_KEY, True)

@@ -1,6 +1,6 @@
 import threading
 
-from jaaql.jaaql import create_app
+from jaaql.jaaql import create_app, DEFAULT_VAULT_KEY
 from mvc.controller import SentinelController
 from mvc.model import SentinelModel
 import sys
@@ -30,6 +30,6 @@ def build_app(*args, **kwargs):
 
 if __name__ == '__main__':
     options = parse_options(sys.argv, False, additional_options=OPT__override)
-    threading.Thread(target=bootup, args=[options.get(OPT_KEY__sentinel_email_recipient), options.get(OPT_KEY__vault_key)], daemon=True).start()
+    threading.Thread(target=bootup, args=[options.get(OPT_KEY__sentinel_email_recipient), DEFAULT_VAULT_KEY], daemon=True).start()
 
     build_app(additional_options=OPT__override)
