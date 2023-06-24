@@ -3,6 +3,7 @@ swagger/*
 log/*
 letsencrypt/*
 monitor_config/*
+www/*
 
 docker.md
 examples.md
