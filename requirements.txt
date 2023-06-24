@@ -1,1 +1,1 @@
-jaaql-middleware-python==4.11.12
+jaaql-middleware-python==4.11.18
