@@ -7,9 +7,11 @@ from flask import Flask, jsonify
 from jaaql.constants import KEY__application, KEY__parameters
 from jaaql.email.email_manager import EmailManager
 import requests
+from jaaql.constants import EMAIL_PARAM__app_url, EMAIL_PARAM__app_name
 from constants import PORT__ms, APPLICATION__sentinel, TEMPLATE__error_managed_service, \
     TEMPLATE__error_managed_service_threshold, ENDPOINT__reset_cooldowns, ROLE__dba
-from jaaql.mvc.exception_queries import KG__application__artifacts_source, KG__application__base_url
+from jaaql.mvc.exception_queries import KG__application__templates_source, KG__email_template__dispatcher, \
+    KG__application__base_url, KG__application__name, email_template__select
 import threading
 import time
 import traceback
@@ -115,10 +117,14 @@ class ManagementService:
                     template = TEMPLATE__error_managed_service_threshold
 
                 if template:
-                    self.email_manager.send_email(self.vault, self.config, self.db_crypt_key, self.jaaql_connection, APPLICATION__sentinel,
-                                                  template, self.app[KG__application__artifacts_source],
-                                                  self.app[KG__application__base_url],
-                                                  ROLE__dba, parameters=email_parameters, recipient=self.sentinel_email_recipient)
+                    template_obj = email_template__select(self.jaaql_connection, APPLICATION__sentinel, template)
+
+                    email_parameters[EMAIL_PARAM__app_url] = self.app[KG__application__base_url]
+                    email_parameters[EMAIL_PARAM__app_name] = self.app[KG__application__name]
+
+                    self.email_manager.construct_and_send_email(self.app[KG__application__templates_source],
+                                                                template_obj[KG__email_template__dispatcher],
+                                                                template_obj, self.sentinel_email_recipient, email_parameters)
 
                     self.alert_cooldowns[ms_name] = datetime.now()
 

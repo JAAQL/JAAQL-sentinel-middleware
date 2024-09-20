@@ -2,10 +2,12 @@ from jaaql.utilities.utils import time_delta_ms
 import sys
 from datetime import datetime
 from flask import Flask, jsonify, request
+from jaaql.constants import EMAIL_PARAM__app_url, EMAIL_PARAM__app_name
 from constants import *
 from documentation.documentation_sentinel import KEY__source_file, KEY__file_line_number, KEY__ip_address, KEY__source_system
 from jaaql.email.email_manager import EmailManager
-from jaaql.mvc.exception_queries import KG__application__artifacts_source, KG__application__base_url
+from jaaql.mvc.exception_queries import KG__application__templates_source, KG__application__base_url, email_template__select, \
+    KG__email_template__dispatcher, KG__application__name
 
 COOLDOWN_MS__ip = 60 * 1000 * 60 * 3  # 3 hours
 COOLDOWN_MS__source_file = 60 * 1000 * 60 * 6  # 6 hours
@@ -42,9 +44,15 @@ class ReportingService:
                                                                                                    datetime.now()) <= COOLDOWN_MS__line_number
 
         if not hit_ip_cooldown and not hit_source_file_cooldown and not hit_line_number_cooldown:
-            self.email_manager.send_email(self.vault, self.config, self.db_crypt_key, self.jaaql_connection, APPLICATION__sentinel,
-                                          TEMPLATE__error_reported, self.app[KG__application__artifacts_source], self.app[KG__application__base_url],
-                                          ROLE__dba, parameters={ATTR__error_id: inputs[ATTR__error_id]}, recipient=self.sentinel_email_recipient)
+            template_obj = email_template__select(self.jaaql_connection, APPLICATION__sentinel, TEMPLATE__error_reported)
+
+            self.email_manager.construct_and_send_email(self.app[KG__application__templates_source],
+                                                        template_obj[KG__email_template__dispatcher], template_obj,
+                                                        self.sentinel_email_recipient, {
+                                                            ATTR__error_id: inputs[ATTR__error_id],
+                                                            EMAIL_PARAM__app_url: self.app[KG__application__base_url],
+                                                            EMAIL_PARAM__app_name: self.app[KG__application__name]
+                                                        })
 
             self.ip_cooldowns[ip_hit] = datetime.now()
             self.source_file_cooldowns[source_file_hit] = datetime.now()

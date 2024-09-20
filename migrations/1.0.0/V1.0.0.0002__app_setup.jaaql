@@ -3,11 +3,11 @@
 INSERT INTO application (
     name,
     base_url,
-    artifacts_source )
+    templates_source )
 VALUES (
     'sentinel',
     '{{JAAQL__SENTINEL_APP_URL}}',
-    'artifacts' );
+    'Templates' );
 
 INSERT INTO application_schema (
     application,
@@ -42,16 +42,14 @@ INSERT INTO email_template (
     content_url,
     validation_schema,
     dispatcher,
-    data_validation_table,
-    data_validation_view )
+    permissions_and_data_view )
 VALUES (
     'sentinel',
     'error_managed_service',
     'G',
-    'templates/error-managed-service.emailbody',
+    'Emails/error-managed-service.template',
     'default',
     'dispatcher',
-    'managed_service_email',
     'vw_managed_service_error_email' );
 
 INSERT INTO email_template (
@@ -61,16 +59,14 @@ INSERT INTO email_template (
     content_url,
     validation_schema,
     dispatcher,
-    data_validation_table,
-    data_validation_view )
+    permissions_and_data_view )
 VALUES (
     'sentinel',
     'error_managed_service_threshold',
     'G',
-    'templates/error-managed-service-threshold.emailbody',
+    'Emails/error-managed-service-threshold.template',
     'default',
     'dispatcher',
-    'managed_service_email',
     'vw_managed_service_threshold_email' );
 
 INSERT INTO email_template (
@@ -80,17 +76,15 @@ INSERT INTO email_template (
     content_url,
     validation_schema,
     dispatcher,
-    data_validation_table,
-    data_validation_view )
+    permissions_and_data_view )
 VALUES (
     'sentinel',
     'error_reported',
     'G',
-    'templates/error-reported.emailbody',
+    'Emails/error-reported.template',
     'default',
     'dispatcher',
-    'error_email',
-    'vw_error_email' );
+    'vw_error_email_permissions_view' );
 
 UPDATE
     application
