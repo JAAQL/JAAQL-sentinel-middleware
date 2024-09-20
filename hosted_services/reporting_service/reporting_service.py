@@ -48,7 +48,7 @@ class ReportingService:
 
             self.email_manager.construct_and_send_email(self.app[KG__application__templates_source],
                                                         template_obj[KG__email_template__dispatcher], template_obj,
-                                                        self.sentinel_email_recipient, {
+                                                        self.sentinel_email_recipient, {**inputs,
                                                             ATTR__error_id: inputs[ATTR__error_id],
                                                             EMAIL_PARAM__app_url: self.app[KG__application__base_url],
                                                             EMAIL_PARAM__app_name: self.app[KG__application__name]

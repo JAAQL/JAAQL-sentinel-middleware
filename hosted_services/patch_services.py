@@ -1,3 +1,4 @@
+from jaaql.exceptions.http_status_exception import HttpSingletonStatusException
 from jaaql.patch import monkey_patch
 
 if __name__ == '__main__':
@@ -7,8 +8,9 @@ from hosted_services.management_service.management_service import create_flask_a
 from hosted_services.reporting_service.reporting_service import create_flask_app as r_flask_app
 from jaaql.utilities.vault import Vault, DIR__vault
 import os
+import time
 from jaaql.constants import ENVIRON__vault_key
-from jaaql.mvc.generated_queries import application__select
+from jaaql.mvc.generated_queries import application__select, KG__application__is_live
 from constants import ENVIRON__sentinel_email_recipient, APPLICATION__sentinel
 from jaaql.utilities.utils import await_ems_startup, load_config, await_migrations_finished, get_jaaql_connection, get_db_crypt_key
 import threading
@@ -24,7 +26,23 @@ def bootup(email_recipient: str, vault_key: str, is_gunicorn: bool = False):
 
     jaaql_connection = get_jaaql_connection(config, vault)
 
-    app = application__select(jaaql_connection, APPLICATION__sentinel)
+    app = None
+
+    print("Awaiting Sentinel app installation")
+    while app is None:
+        try:
+            app = application__select(jaaql_connection, APPLICATION__sentinel)
+        except HttpSingletonStatusException:
+            pass
+
+        if app is not None:
+            if not app[KG__application__is_live]:
+                app = None
+
+        if app is None:
+            time.sleep(5)
+    print("Sentinel app installed")
+
     db_crypt_key = get_db_crypt_key(vault)
 
     threading.Thread(target=m_flask_app, args=[vault, config, db_crypt_key, jaaql_connection, app, is_gunicorn, email_recipient], daemon=True).start()

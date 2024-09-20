@@ -8,9 +8,7 @@ from constants import APPLICATION__sentinel, ROLE__dba
 from jaaql.interpreter.interpret_jaaql import KEY_query, KEY_parameters
 import traceback
 
-ATTR__enc_ip_address = "enc_ip_address"
-
-QUERY__ins_error = "INSERT INTO error (location, source_file, enc_user_agent, enc_ip_address, error_condensed, file_line_number, version, source_system, stacktrace) VALUES (:location, :source_file, #user_agent, #ip_address, left(:error_condensed, 200), :file_line_number, :version, :source_system, :stacktrace) RETURNING id::text as error_id, source_file, source_system, file_line_number"
+QUERY__ins_error = "insert into error (location, source_file, user_agent, ip_address, error_condensed, stacktrace, file_line_number, file_col_number, version, source_system) VALUES (:location, :source_file, #user_agent, #ip_address, left(:error_condensed, 200), :stacktrace, :file_line_number, :file_col_number, :version, :source_system) RETURNING id::text as error_id, source_file, source_system, file_line_number, version, stacktrace, created::varchar"
 
 
 class SentinelModel(JAAQLModelInterface):

@@ -33,7 +33,7 @@ ALERT__cooldown = 60 * 1000 * 60 * 3  # 3 hours
 THRESHOLD_INTERNAL = 120
 THRESHOLD_EXTERNAL = 150
 
-QUERY__ins_check = "INSERT INTO managed_service_check (managed_service, raw_result, response_code, response_time_ms) VALUES (:managed_service, :raw_result, :response_code, :response_time_ms) RETURNING id::text as managed_service_check_id"
+QUERY__ins_check = "INSERT INTO managed_service_check (managed_service, raw_result, response_code, response_time_ms) VALUES (:managed_service, :raw_result, :response_code, :response_time_ms) RETURNING id::text"
 
 
 class ManagementService:
@@ -82,18 +82,18 @@ class ManagementService:
         while True:
             passed = False
             raw_response = None
-            status_code = 0
+            status_code = None
 
             start_time = datetime.now()
             try:
                 res = requests.get(ms[KEY__managed_service_url])
                 raw_response = res.text
                 status_code = res.status_code
-                if status_code == 200:
+                if status_code == ms["expected_response_code"]:
                     passed = True
             except Exception as ex:
-                raw_response = ''.join(traceback.format_exception(etype=type(ex), value=ex, tb=ex.__traceback__))
-            response_time_ms = time_delta_ms(start_time, datetime.now())
+                raw_response = ''.join(traceback.format_exception(type(ex), ex, ex.__traceback__))
+            response_time_ms = max(time_delta_ms(start_time, datetime.now()), 1)
 
             submit_inputs = {
                 KEY_query: QUERY__ins_check,
@@ -106,6 +106,10 @@ class ManagementService:
                 }
             }
 
+            lookup_id = submit(self.vault, self.config, self.db_crypt_key, self.jaaql_connection, submit_inputs, ROLE__dba, as_objects=True,
+                               singleton=True)["id"]
+            submit_inputs[KEY_query] = "SELECT * FROM vw_managed_service_check WHERE id = :id"
+            submit_inputs[KEY__parameters] = {"id": lookup_id}
             email_parameters = submit(self.vault, self.config, self.db_crypt_key, self.jaaql_connection, submit_inputs, ROLE__dba, as_objects=True,
                                       singleton=True)
 

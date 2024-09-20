@@ -55,6 +55,7 @@ EXAMPLE__source_file = "JEQL_package.js"
 KEY__source_system = "source_system"
 EXAMPLE__source_system = "JAAQL-middleware-python"
 KEY__file_line_number = "file_line_number"
+KEY__file_col_number = "file_col_number"
 
 ARG_RES__error_body = [
     SwaggerArgumentResponse(
@@ -74,6 +75,20 @@ ARG_RES__error_body = [
         description="A condensed version of the error, used to aid grouping. If longer than 200 characters, will be truncated",
         arg_type=str,
         example=["Uncaught TypeError: Cannot read properties of undefined (reading 'jaaql')"]
+    ),
+    SwaggerArgumentResponse(
+        name=KEY__file_line_number,
+        description="The line of the file that the exception occurred at",
+        arg_type=int,
+        example=[123]
+    ),
+    SwaggerArgumentResponse(
+        name=KEY__file_col_number,
+        description="The column of the file that the exception occurred at",
+        required=False,
+        condition="Sometimes not available",
+        arg_type=int,
+        example=[21]
     ),
     SwaggerArgumentResponse(
         name=KEY__file_line_number,
