@@ -1,4 +1,6 @@
 from jaaql.exceptions.http_status_exception import HttpSingletonStatusException
+from jaaql.exceptions.jaaql_interpretable_handled_errors import UnhandledQueryError
+from jaaql.generated_constants import SQLState
 from jaaql.patch import monkey_patch
 
 if __name__ == '__main__':
@@ -33,7 +35,12 @@ def bootup(email_recipient: str, vault_key: str, is_gunicorn: bool = False):
         try:
             app = application__select(jaaql_connection, APPLICATION__sentinel)
         except HttpSingletonStatusException:
-            pass
+            pass  # Application hasn't been inserted yet
+        except UnhandledQueryError as ex:
+            if ex.descriptor["sqlstate"] == SQLState.UndefinedTable.value:
+                pass  # Table doesn't exist. This is okay, we are just waiting for it to be created on another thread
+            else:
+                raise ex
 
         if app is not None:
             if not app[KG__application__is_live]:
