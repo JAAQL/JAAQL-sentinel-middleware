@@ -25,7 +25,7 @@ KEY__check_every_ms = "check_every_ms"
 KEY__managed_service_url = "url"
 KEY__response_time_alert_threshold_ms = "response_time_alert_threshold_ms"
 
-QUERY__fetch_managed_services = "SELECT * FROM managed_service"
+QUERY__fetch_managed_services = "SELECT * FROM managed_service WHERE active is true"
 
 ATTR__managed_service = "managed_service"
 
@@ -70,6 +70,9 @@ class ManagementService:
             if ms[KEY__managed_service_name] not in self.managed_services:
                 self.managed_services[ms[KEY__managed_service_name]] = ms
                 threading.Thread(target=self.managed_service_thread, daemon=True, args=[ms]).start()
+            else:
+                self.managed_services[ms[KEY__managed_service_name]] = ms
+            print("Launching service " + ms[KEY__managed_service_name])
             found.append(ms[KEY__managed_service_name])
 
         to_pop_keys = [name for name in self.managed_services.keys() if name not in found]
@@ -80,6 +83,8 @@ class ManagementService:
         ms_name = ms[KEY__managed_service_name]
 
         while True:
+            print("Running check against " + ms_name)
+            ms = self.managed_services[ms_name]  # Update the fields, perhaps the URL was changed
             passed = False
             raw_response = None
             status_code = None
