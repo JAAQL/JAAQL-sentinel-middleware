@@ -69,14 +69,15 @@ class ManagementService:
         for ms in res:
             if ms[KEY__managed_service_name] not in self.managed_services:
                 self.managed_services[ms[KEY__managed_service_name]] = ms
+                print("Launching service " + ms[KEY__managed_service_name])
                 threading.Thread(target=self.managed_service_thread, daemon=True, args=[ms]).start()
             else:
                 self.managed_services[ms[KEY__managed_service_name]] = ms
-            print("Launching service " + ms[KEY__managed_service_name])
             found.append(ms[KEY__managed_service_name])
 
         to_pop_keys = [name for name in self.managed_services.keys() if name not in found]
         for to_pop in to_pop_keys:
+            print("Removing service " + to_pop)
             self.managed_services.pop(to_pop)
 
     def managed_service_thread(self, ms: dict):
