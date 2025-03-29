@@ -1,1 +1,1 @@
-jaaql-middleware-python==4.23.49
+jaaql-middleware-python==4.30.5
